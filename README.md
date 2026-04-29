@@ -1,38 +1,85 @@
 # 🦁 Wildlife Poaching Detection System
 
-A real-time AI-powered surveillance system that detects potential poaching activity by identifying **persons carrying weapons** in live webcam feeds or recorded video footage.
+A real-time AI-powered surveillance system that detects potential poaching activity using **object detection + behavior analysis + multi-object tracking**.
 
-Built with **YOLOv8** (Ultralytics) and **OpenCV**.
+Built with **YOLOv8**, **DeepSORT**, and **OpenCV**.
+
+---
+
+## 🚀 What's New (Latest Update)
+
+* ✅ **DeepSORT Tracking** → Stable person IDs across frames
+* ✅ **Behavior-Based Detection** → Detects suspicious activity even without visible weapons
+* ✅ **Loitering Detection** → Identifies prolonged presence in monitored areas
+* ✅ **Risk Scoring System** → Multi-factor decision instead of simple rule-based alerts
+* ✅ **Improved NMS Filtering** → Removes duplicate detections
+* ✅ **Dual Alert System**:
+
+  * Weapon-based alert
+  * Behavior-based high-risk alert
 
 ---
 
 ## 🎯 How It Works
 
-1. Each frame is analyzed by YOLOv8 to detect `person` and weapon classes (`knife`, `gun`, `pistol`, `rifle`, `scissors`)
-2. If a weapon is detected **near or overlapping** a person, an alert is triggered
-3. The alert requires **3 consecutive confirmations** (configurable) to avoid false positives
-4. Confirmed alerts are **saved as images** and **logged to CSV**
+1. Each frame is processed using YOLOv8 to detect:
+
+   * `person`
+   * weapons (`knife`, `gun`, `pistol`, `rifle`, `scissors`)
+2. Person detections are passed to **DeepSORT** to assign unique IDs
+3. The system tracks:
+
+   * Movement over time
+   * Number of people
+   * Duration of presence (loitering)
+4. A **risk score** is calculated based on:
+
+   * Human presence
+   * Weapon detection
+   * Group activity
+   * Loitering behavior
+5. Alerts are triggered when:
+
+   * Weapon is detected near a person
+   * OR risk score crosses threshold
+
+---
+
+## 🧠 Risk Scoring Logic
+
+```text
+Risk Score = 
+    +10 (person detected)
+    +40 (weapon detected)
+    +15 (multiple people)
+    +30 (loitering)
+```
+
+* `> 60` → 🚨 HIGH RISK
+* `> 30` → ⚠ MEDIUM RISK
 
 ---
 
 ## 📸 Demo
 
-| Normal Frame | Alert Triggered |
-|---|---|
-| Green box = Person | Red box = Weapon |
-| No warning shown | `🚨 ALERT: Weapon near person!` |
+| Normal              | Detection             |
+| ------------------- | --------------------- |
+| Green Box = Person  | Red Box = Weapon      |
+| ID Tracking Enabled | Risk Alerts Displayed |
 
 ---
 
 ## 🚀 Quick Start
 
 ### 1. Clone the repo
+
 ```bash
 git clone https://github.com/YOUR_USERNAME/poach-demo.git
 cd poach-demo
 ```
 
 ### 2. Create virtual environment
+
 ```bash
 python -m venv .venv
 .venv\Scripts\activate        # Windows
@@ -40,48 +87,36 @@ python -m venv .venv
 ```
 
 ### 3. Install dependencies
+
 ```bash
 pip install -r requirements.txt
-```
-> Skip this if you already have the packages installed.
-```
-
-### 4. Download YOLOv8 model
-```bash
-# Automatically downloaded on first run, or manually:
-python -c "from ultralytics import YOLO; YOLO('yolov8n.pt')"
+pip install deep-sort-realtime
 ```
 
-### 5. Run
+---
+
+### 4. Run
+
 ```bash
 python detect.py
 ```
 
-Press **`Q`** to quit the window.
+Press **`Q`** to quit.
 
 ---
 
 ## ⚙️ Configuration
 
-Edit the `CONFIG` block at the top of `detect.py`:
+Edit the `CONFIG` section in `detect.py`:
 
-| Variable | Default | Description |
-|---|---|---|
-| `INPUT_SOURCE` | `0` | `0` = webcam, or path to video file |
-| `LOOP_VIDEO` | `False` | Repeat video file when finished |
-| `MODEL` | `yolov8n.pt` | YOLOv8 model variant |
-| `CONF_THRESH` | `0.12` | Minimum detection confidence |
-| `NEAR_PIX` | `120` | Max pixel distance weapon↔person |
-| `ALERT_PERSIST` | `3` | Frames needed to confirm alert |
-| `ALERT_COOLDOWN_SECONDS` | `5` | Seconds between alerts |
-| `SAVE_ALERT_FRAMES` | `True` | Save alert images to disk |
-| `TARGET_INFER_FPS` | `4.0` | Inference rate (CPU-friendly) |
-
-### Using a video file:
-```python
-INPUT_SOURCE = r"C:\path\to\video.mp4"
-LOOP_VIDEO   = True
-```
+| Variable           | Description                |
+| ------------------ | -------------------------- |
+| `INPUT_SOURCE`     | Webcam (`0`) or video file |
+| `MODEL`            | YOLOv8 model (n/s/m)       |
+| `CONF_THRESH`      | Detection confidence       |
+| `NEAR_PIX`         | Distance for weapon alert  |
+| `TARGET_INFER_FPS` | Processing speed           |
+| `ALERT_PERSIST`    | Frames for confirmation    |
 
 ---
 
@@ -89,64 +124,72 @@ LOOP_VIDEO   = True
 
 ```
 poach-demo/
-├── detect.py          # Main detection script
-├── requirements.txt   # Python dependencies
+├── detect.py
+├── requirements.txt
 ├── README.md
-├── .gitignore
-└── alerts/            # Auto-created: saved alert frames & crops
-    ├── alert_42_20240101_120000.jpg
-    └── crop_42_20240101_120000.jpg
-events.csv             # Auto-created: alert log
+├── alerts/
+└── events.csv
 ```
 
 ---
 
-## 📊 Alert Log (events.csv)
+## 📊 Alerts
 
-Each confirmed alert is logged with:
+System logs:
 
-| Column | Description |
-|---|---|
-| `readable_time` | Human-readable timestamp |
-| `unix_time` | Unix timestamp |
-| `frame_id` | Frame number |
-| `person_conf` | Person detection confidence |
-| `weapon_conf` | Weapon detection confidence |
-| `frame_file` | Path to saved alert frame |
-| `crop_file` | Path to weapon crop image |
+* Alert frames (images)
+* CSV logs with timestamps
 
 ---
 
-## 🧠 Model
+## 🧠 Technologies Used
 
-Uses **YOLOv8n** (nano) by default — fast enough for real-time on CPU.
+* YOLOv8 (Object Detection)
+* DeepSORT (Tracking)
+* OpenCV (Video Processing)
+* Python
 
-For better accuracy, switch to a larger model:
-```python
-MODEL = "yolov8s.pt"   # small
-MODEL = "yolov8m.pt"   # medium
+---
+
+## 🏗️ Architecture
+
+```
+Video Input
+    ↓
+YOLOv8 Detection
+    ↓
+NMS Filtering
+    ↓
+DeepSORT Tracking (IDs)
+    ↓
+Behavior Analysis
+    ↓
+Risk Scoring
+    ↓
+Alert System
+    ↓
+Logging + Display
 ```
 
-> **Note:** `yolov8n.pt` is auto-downloaded by Ultralytics and is excluded from this repo via `.gitignore` due to file size.
-
 ---
 
-## 📦 Requirements
+## 💡 Key Advantages
 
-- Python 3.8+
-- Webcam or video file
-- No GPU required (CPU inference supported)
+* Works even if weapon is hidden
+* Real-time processing
+* Behavior-aware detection
+* Scalable to surveillance systems
 
 ---
 
 ## 👨‍💻 Author
 
-**Naman Goel**  
-B.Tech CSE | GNIOT, Greater Noida  
+**Naman Goel**
+B.Tech CSE | GNIOT
 [GitHub](https://github.com/YOUR_USERNAME)
 
 ---
 
 ## 📄 License
 
-MIT License — free to use and modify.
+MIT License
